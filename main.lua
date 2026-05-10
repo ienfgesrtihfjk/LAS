@@ -200,7 +200,6 @@ NotifHolder.Parent              = ScreenGui
 
 local notifListLayout = ListLayout(NotifHolder, 6)
 notifListLayout.VerticalAlignment = Enum.VerticalAlignment.Bottom
-NotifHolder.CanvasSize = UDim2.new(0,0,0,0)
 
 local notifCount = 0
 
