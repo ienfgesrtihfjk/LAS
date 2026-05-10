@@ -1,0 +1,422 @@
+1. Quick Start
+Paste this into your executor and run it:
+lualocal LumoAdmin = loadstring(game:HttpGet(
+    "https://raw.githubusercontent.com/YOUR_USER/YOUR_REPO/main/LumoAdmin.lua"
+))()
+Once loaded you will see a Success notification. Press ; (semicolon) or Insert to open the command bar.
+
+2. Loading via Executor / loadstring
+LumoAdmin.lua is a module that returns its API table. When you loadstring it, assign the return value:
+lua-- Basic load
+local LumoAdmin = loadstring(game:HttpGet("RAW_URL"))()
+
+-- Now you have full access to the API:
+LumoAdmin.AddCommand(...)
+LumoAdmin.Notify(...)
+LumoAdmin.CreateWindow(...)
+
+Note: game:HttpGet requires the executor to have HTTP request permissions.
+
+Re-execution safety
+The script removes any pre-existing LumoAdmin ScreenGui before creating a fresh one, so you can re-run it without getting duplicate UIs.
+
+3. Command Bar Usage
+ActionResultPress ; or InsertOpen / close the command barType a command and press EnterExecute the commandPress EscapeClose without executingPress ↑ / ↓ arrow keysCycle through command historyPress TabAutocomplete (if only one match)Start typing any wordAutocomplete dropdown appearsClick a suggestion in dropdownFill input with that command
+The bar appears at the top-centre of the screen with a smooth spring animation.
+> fly 80          ← command with argument
+> to Player123    ← player name argument (partial match works)
+> ws              ← no argument = show current value
+
+4. Built-in Commands Reference
+CommandAliasesUsageDescriptioncmdscommands, helpcmdsOpen searchable command browsersettingsconfig, optionssettingsOpen settings / keybind panelflyunflyfly [speed]Toggle fly modenoclipclip, ncnoclipToggle no-collisionfreecamfc, spectatefreecamToggle free spectator cameratogoto, tpto <player>Teleport to a playerviewwatchview <player>Follow another player's cameraunviewunwatchunviewReturn to your own camerasit—sitMake character sitjump—jumpMake character jumpwswalkspeed, speedws [speed]Get/set walk speedjpjumppowerjp [power]Get/set jump powerrejoinrjrejoinRejoin the current gameping—pingShow current ping in msplayersplist, whoplayersList all players in serverposcoords, xyzposShow your world positiontimeclocktimeShow game & local timegravitygravgravity [value]Get/set workspace gravityfov—fov [value]Get/set camera FOV (1–120)charreset, respawncharReset your characterinvisibleinvis, visinvisibleToggle local character transparencyhitboxhbhitbox <player> [size]Expand a player's hitbox (local)versionver, about, infoversionShow version information
+
+5. Adding Custom Commands
+Basic signature
+luaLumoAdmin.AddCommand(name, definition)
+ParameterTypeDescriptionnamestringPrimary command name (used for lookup and autocomplete)definition.DescriptionstringShort description shown in cmds listdefinition.Aliasestable<string>Alternative names the user can typedefinition.UsagestringUsage hint shown in cmds list (e.g. "ws <speed>")definition.Executefunction(args)Called when command runs; args is a table of string tokens
+Minimal example
+luaLumoAdmin.AddCommand("hello", {
+    Description = "Says hello in a notification",
+    Execute = function(args)
+        LumoAdmin.Notify({
+            Title   = "Hello!",
+            Message = "Hi there, " .. (args[1] or "world") .. "!",
+            Type    = "Success",
+        })
+    end,
+})
+Run it: > hello Claude
+Full example with aliases and usage
+luaLumoAdmin.AddCommand("heal", {
+    Description = "Set your character health",
+    Aliases     = { "health", "hp" },
+    Usage       = "heal [amount]",
+    Execute     = function(args)
+        local char = game.Players.LocalPlayer.Character
+        local hum  = char and char:FindFirstChildOfClass("Humanoid")
+        if not hum then
+            LumoAdmin.Notify({ Title = "Heal", Message = "No humanoid found.", Type = "Error" })
+            return
+        end
+        local amount = tonumber(args[1]) or hum.MaxHealth
+        hum.Health = math.min(amount, hum.MaxHealth)
+        LumoAdmin.Notify({
+            Title   = "Heal",
+            Message = string.format("Health set to %.0f / %.0f", hum.Health, hum.MaxHealth),
+            Type    = "Success",
+        })
+    end,
+})
+Overwriting a built-in command
+Simply call AddCommand with the same name — it replaces the existing entry:
+luaLumoAdmin.AddCommand("fly", {
+    Description = "My custom fly with fixed speed",
+    Execute = function(args)
+        -- custom implementation
+    end,
+})
+Removing a command
+luaLumoAdmin.Commands["commandname"] = nil
+
+6. Notification API
+luaLumoAdmin.Notify(options)
+Options table
+KeyTypeDefaultDescriptionTitlestring"Lumo Admin"Bold title textMessagestring""Body text (wraps automatically)Typestring"Info""Info" · "Success" · "Warning" · "Error"Durationnumber4Seconds before auto-dismiss
+Return value
+Returns the wrapper Frame (rarely needed, but you can call :Destroy() on it early).
+Examples
+lua-- Simple info
+LumoAdmin.Notify({ Title = "Status", Message = "Connected to server.", Type = "Info" })
+
+-- Success with longer duration
+LumoAdmin.Notify({
+    Title    = "Teleport",
+    Message  = "Arrived at Player123's location.",
+    Type     = "Success",
+    Duration = 6,
+})
+
+-- Error
+LumoAdmin.Notify({
+    Title   = "Error",
+    Message = "Player 'xyz' was not found in the server.",
+    Type    = "Error",
+})
+
+-- Warning
+LumoAdmin.Notify({
+    Title   = "Noclip",
+    Message = "Noclip is already active.",
+    Type    = "Warning",
+    Duration = 2,
+})
+
+7. Window / UI Helper API
+lualocal handle = LumoAdmin.CreateWindow(options)
+Options table
+KeyTypeDefaultDescriptionTitlestring"Lumo"Window title bar textSizeUDim2UDim2.new(0,400,0,320)Window dimensionsPositionUDim2UDim2.new(0.5,0,0.5,0)AnchorPoint is automatically 0.5, 0.5
+Handle fields
+FieldTypeDescriptionhandle.WindowFrameRoot window framehandle.ContentFrameInner area — parent your widgets herehandle.Close()functionAnimate and destroy the window
+Windows are:
+
+Draggable by the title bar automatically
+Animated open/close with spring/quint easing
+Dark-themed following the active theme
+
+Basic window example
+lualocal win = LumoAdmin.CreateWindow({
+    Title = "My Tool",
+    Size  = UDim2.new(0, 340, 0, 200),
+})
+
+-- Add a label to the content area
+local label = Instance.new("TextLabel")
+label.Size             = UDim2.new(1, 0, 0, 30)
+label.BackgroundTransparency = 1
+label.TextColor3       = Color3.fromRGB(220, 220, 230)
+label.Text             = "Hello from my tool!"
+label.Font             = Enum.Font.Gotham
+label.TextSize         = 14
+label.Parent           = win.Content
+
+-- Close programmatically after 5 seconds
+task.delay(5, win.Close)
+Window with a scrolling list
+lualocal win = LumoAdmin.CreateWindow({ Title = "Item List", Size = UDim2.new(0, 300, 0, 280) })
+
+local scroll = Instance.new("ScrollingFrame")
+scroll.Size                 = UDim2.new(1, 0, 1, 0)
+scroll.BackgroundTransparency = 1
+scroll.BorderSizePixel      = 0
+scroll.ScrollBarThickness   = 4
+scroll.AutomaticCanvasSize  = Enum.AutomaticSize.Y
+scroll.CanvasSize           = UDim2.new()
+scroll.Parent               = win.Content
+
+local layout = Instance.new("UIListLayout")
+layout.Padding    = UDim.new(0, 4)
+layout.SortOrder  = Enum.SortOrder.LayoutOrder
+layout.Parent     = scroll
+
+for i = 1, 20 do
+    local row = Instance.new("TextLabel")
+    row.Size             = UDim2.new(1, 0, 0, 26)
+    row.BackgroundColor3 = Color3.fromRGB(21, 21, 30)
+    row.BorderSizePixel  = 0
+    row.TextColor3       = Color3.fromRGB(220, 220, 230)
+    row.Text             = "  Item " .. i
+    row.Font             = Enum.Font.Gotham
+    row.TextSize         = 12
+    row.TextXAlignment   = Enum.TextXAlignment.Left
+    row.LayoutOrder      = i
+    row.Parent           = scroll
+    local c = Instance.new("UICorner")
+    c.CornerRadius = UDim.new(0, 6)
+    c.Parent = row
+end
+
+8. MakeDraggable
+luaLumoAdmin.MakeDraggable(frame, handle)
+Makes frame draggable. handle is the part the user clicks to drag (defaults to frame itself). Pass the title bar of a custom window as handle.
+lualocal myFrame = Instance.new("Frame")
+-- ... setup ...
+LumoAdmin.MakeDraggable(myFrame, myFrame) -- drag anywhere on the frame
+
+-- Or with a dedicated handle:
+LumoAdmin.MakeDraggable(myFrame, titleBarFrame)
+
+9. Settings API
+All settings live in LumoAdmin.Settings. You can read and write them from your scripts at any time.
+KeyTypeDefaultDescriptionOpenKeyEnum.KeyCodeEnum.KeyCode.SemicolonPrimary key to toggle the command barAltOpenKeyEnum.KeyCodeEnum.KeyCode.InsertSecondary / alternate toggle keyCommandHistorySizenumber50Max entries stored in ↑↓ historyThemestring"Dark"Active theme name
+Changing settings in code
+lua-- Change keybind to P key
+LumoAdmin.Settings.OpenKey = Enum.KeyCode.P
+
+-- Shrink history
+LumoAdmin.Settings.CommandHistorySize = 20
+
+The user can also change OpenKey and AltOpenKey interactively via the settings command UI.
+
+
+10. Framework Architecture
+LumoAdmin (table / module)
+├── _VERSION         string
+├── _NAME            string
+├── Commands         { [name]: CommandDefinition }
+├── Settings         { OpenKey, AltOpenKey, … }
+│
+├── AddCommand(name, def)       Register a command
+├── Notify(options)             Fire a notification
+├── CreateWindow(options)       Create a draggable UI window
+└── MakeDraggable(frame, handle)
+
+Internal (not part of public API, but readable):
+├── CommandBar GUI              (Bar, BarInput, ACFrame)
+├── NotifHolder                 ScrollingFrame that holds toasts
+├── OpenBar() / CloseBar()      Bar animation
+└── RunCommand(rawString)       Parser + dispatcher
+How command resolution works
+
+User types > ws 80 and presses Enter
+RunCommand("ws 80") is called
+Input is tokenised → cmdKey = "ws", args = {"80"}
+Commands table is scanned:
+
+Exact match on key name
+Then alias scan for each command
+
+
+found.Execute({"80"}) is called inside pcall
+If pcall errors, an Error notification is shown automatically
+
+Autocomplete resolution
+Autocomplete only triggers while the user is typing the first word (no space yet). It does prefix matching against all command names and their aliases.
+
+11. Full Custom Command Examples
+Example A — Infinite jump toggle
+lualocal ijConn = nil
+local ijActive = false
+
+LumoAdmin.AddCommand("ijump", {
+    Description = "Toggle infinite jump",
+    Aliases     = { "infinitejump", "ij" },
+    Usage       = "ijump",
+    Execute     = function()
+        local lp = game.Players.LocalPlayer
+        if ijActive then
+            ijActive = false
+            if ijConn then ijConn:Disconnect() ijConn = nil end
+            LumoAdmin.Notify({ Title = "Infinite Jump", Message = "Disabled.", Type = "Info" })
+        else
+            ijActive = true
+            ijConn = game:GetService("UserInputService").JumpRequest:Connect(function()
+                local char = lp.Character
+                local hum  = char and char:FindFirstChildOfClass("Humanoid")
+                if hum then hum:ChangeState(Enum.HumanoidStateType.Jumping) end
+            end)
+            LumoAdmin.Notify({ Title = "Infinite Jump", Message = "Enabled.", Type = "Success" })
+        end
+    end,
+})
+Example B — Command that opens a custom window
+luaLumoAdmin.AddCommand("stats", {
+    Description = "Show character stats in a window",
+    Aliases     = { "mystats" },
+    Usage       = "stats",
+    Execute     = function()
+        local lp   = game.Players.LocalPlayer
+        local char = lp.Character
+        local hum  = char and char:FindFirstChildOfClass("Humanoid")
+        if not hum then
+            LumoAdmin.Notify({ Title = "Stats", Message = "No character.", Type = "Error" })
+            return
+        end
+
+        local win    = LumoAdmin.CreateWindow({ Title = "Character Stats", Size = UDim2.new(0, 300, 0, 200) })
+        local layout = Instance.new("UIListLayout")
+        layout.Padding   = UDim.new(0, 6)
+        layout.SortOrder = Enum.SortOrder.LayoutOrder
+        layout.Parent    = win.Content
+
+        local function Row(label, value, order)
+            local f = Instance.new("Frame")
+            f.Size             = UDim2.new(1, 0, 0, 30)
+            f.BackgroundColor3 = Color3.fromRGB(21, 21, 30)
+            f.BorderSizePixel  = 0
+            f.LayoutOrder      = order
+            f.Parent           = win.Content
+            local c = Instance.new("UICorner")
+            c.CornerRadius = UDim.new(0, 6)
+            c.Parent = f
+
+            local lbl = Instance.new("TextLabel")
+            lbl.Size             = UDim2.new(0.55, 0, 1, 0)
+            lbl.Position         = UDim2.new(0, 8, 0, 0)
+            lbl.BackgroundTransparency = 1
+            lbl.Text             = label
+            lbl.TextColor3       = Color3.fromRGB(140, 140, 160)
+            lbl.TextSize         = 12
+            lbl.Font             = Enum.Font.Gotham
+            lbl.TextXAlignment   = Enum.TextXAlignment.Left
+            lbl.Parent           = f
+
+            local val = Instance.new("TextLabel")
+            val.Size             = UDim2.new(0.45, -8, 1, 0)
+            val.Position         = UDim2.new(0.55, 0, 0, 0)
+            val.BackgroundTransparency = 1
+            val.Text             = tostring(value)
+            val.TextColor3       = Color3.fromRGB(110, 130, 255)
+            val.TextSize         = 12
+            val.Font             = Enum.Font.GothamBold
+            val.TextXAlignment   = Enum.TextXAlignment.Right
+            val.Parent           = f
+        end
+
+        Row("Health",     string.format("%.0f / %.0f", hum.Health, hum.MaxHealth), 1)
+        Row("WalkSpeed",  hum.WalkSpeed,  2)
+        Row("JumpPower",  hum.JumpPower,  3)
+        Row("Name",       lp.Name,        4)
+        Row("Display",    lp.DisplayName, 5)
+    end,
+})
+Example C — Command with a confirmation step
+luaLumoAdmin.AddCommand("clearworkspace", {
+    Description = "Remove all non-essential workspace parts (local only)",
+    Aliases     = { "clearws" },
+    Usage       = "clearworkspace confirm",
+    Execute     = function(args)
+        if args[1] ~= "confirm" then
+            LumoAdmin.Notify({
+                Title   = "ClearWorkspace",
+                Message = "Run 'clearworkspace confirm' to proceed. This is destructive!",
+                Type    = "Warning",
+                Duration = 5,
+            })
+            return
+        end
+        local removed = 0
+        for _, obj in ipairs(workspace:GetChildren()) do
+            if obj:IsA("BasePart") and obj ~= workspace.Terrain then
+                obj:Destroy()
+                removed += 1
+            end
+        end
+        LumoAdmin.Notify({
+            Title   = "ClearWorkspace",
+            Message = "Removed " .. removed .. " parts (client-side only).",
+            Type    = "Success",
+        })
+    end,
+})
+Example D — Looping command with toggle
+lualocal bhopConn  = nil
+local bhopActive = false
+
+LumoAdmin.AddCommand("bhop", {
+    Description = "Toggle bunny hop (auto-jump on land)",
+    Aliases     = { "bunnyhop" },
+    Usage       = "bhop",
+    Execute     = function()
+        local lp  = game.Players.LocalPlayer
+        local UIS = game:GetService("UserInputService")
+        local RS  = game:GetService("RunService")
+
+        if bhopActive then
+            bhopActive = false
+            if bhopConn then bhopConn:Disconnect() bhopConn = nil end
+            LumoAdmin.Notify({ Title = "Bhop", Message = "Disabled.", Type = "Info" })
+            return
+        end
+
+        bhopActive = true
+        bhopConn   = RS.Heartbeat:Connect(function()
+            local char = lp.Character
+            local hum  = char and char:FindFirstChildOfClass("Humanoid")
+            if hum and UIS:IsKeyDown(Enum.KeyCode.Space)
+               and hum:GetState() == Enum.HumanoidStateType.Landed then
+                hum:ChangeState(Enum.HumanoidStateType.Jumping)
+            end
+        end)
+        LumoAdmin.Notify({ Title = "Bhop", Message = "Enabled. Hold Space to bhop.", Type = "Success" })
+    end,
+})
+
+12. Hosting on GitHub & loadstring
+Step 1 — Create your repository
+
+Go to github.com → New repository
+Name it (e.g. lumo-admin)
+Set to Public (required for raw access without auth)
+Upload LumoAdmin.lua to the root or a subfolder
+
+Step 2 — Get the raw URL
+Navigate to LumoAdmin.lua in GitHub, click Raw, and copy the URL.
+It will look like:
+https://raw.githubusercontent.com/YourUsername/lumo-admin/main/LumoAdmin.lua
+Step 3 — Load in your executor
+lualocal LumoAdmin = loadstring(game:HttpGet(
+    "https://raw.githubusercontent.com/YourUsername/lumo-admin/main/LumoAdmin.lua"
+))()
+Step 4 — Adding commands in a separate file
+Create an extensions/ folder in your repo and put custom command files there:
+extensions/myCmds.lua
+lua-- This file receives LumoAdmin as an argument
+return function(LumoAdmin)
+    LumoAdmin.AddCommand("myCustomCmd", {
+        Description = "My personal command",
+        Execute = function(args)
+            LumoAdmin.Notify({ Title = "Custom!", Message = "It works!", Type = "Success" })
+        end,
+    })
+    -- Add as many commands as you want here
+end
+Load both in your executor:
+lualocal LumoAdmin = loadstring(game:HttpGet(
+    "https://raw.githubusercontent.com/YourUsername/lumo-admin/main/LumoAdmin.lua"
+))()
+
+-- Load and apply extensions
+local applyMyCmds = loadstring(game:HttpGet(
+    "https://raw.githubusercontent.com/YourUsername/lumo-admin/main/extensions/myCmds.lua"
+))()
+applyMyCmds(LumoAdmin)
